@@ -1,25 +1,22 @@
 # dsh-net-opt
 
-DSH（DeepSeek Harness）宿主插件：把 Node 的 Happy Eyeballs 单地址尝试窗口从 250ms 调宽，避免慢链路上 IPv4 握手被过早判死。
+DSH（DeepSeek Harness）宿主插件：解决 provider 请求「连接经常失败」的问题。
 
-## 问题
+## 已验证解决的问题
 
-Node 默认 `autoSelectFamily=true`、`autoSelectFamilyAttemptTimeout=250`：每个候选地址只有 250ms 建连窗口，超时即换下一个。慢链路上到边缘节点的 IPv4 握手常需 0.3–2.3s，候选地址耗尽后连接以 `ETIMEDOUT` 结束，宿主侧表现为 `Connection error.`（`TRANSPORT`）与整轮失败。
+`opencode-go` 在慢速链路上经常连不上，宿主报 `Connection error.`（`TRANSPORT`），每次失败耗时稳定在约 0.5s（默认参数下实测约 1/10 成功）。
 
-典型现场：
+装上本插件后，同一链路连发 7 次请求全部成功、零重试（`deepseek-v4.1-flash` 与 `qwen3.8-flash` 各若干次）。原因是 Node 的 Happy Eyeballs 只给每个候选地址 250ms 建连窗口，而这类链路上 IPv4 握手常需更久，连接还没建立就被放弃；调宽窗口后即恢复正常。
 
-- 目标主机同时有 A 与 AAAA 记录，但本机没有 IPv6 路由（AAAA 尝试瞬间 `ENETUNREACH`）；
-- 每次失败耗时约 2×250ms（两个 IPv4 候选各占一个窗口）；
-- 关闭自动选择或强制 IPv4 后成功率恢复，说明连接本身可用，是过早放弃。
+## 可能同样受益的供应商
 
-## 行为
+除 `opencode-go` 外，符合以下特征的 provider 也可能被同一个问题影响：
 
-插件挂载时改进程级 `net` 默认值，对 `net.connect` 与全局 `fetch`（undici）同时生效，因此与 DSH 的启动方式无关：
+- 端点有 AAAA 记录，而本机没有可用 IPv6 路由（或 IPv6 质量差）；
+- 到该端点的 IPv4 建连耗时超过 250ms：跨境、移动网络、Cloudflare 等边缘节点常见；
+- 失败表现是 `Connection error.` / `TRANSPORT`，且耗时稳定在约 0.5s（2×250ms）。
 
-- `attemptTimeoutMs`（默认 3000）：单地址尝试窗口；
-- `disableAutoSelectFamily`（默认 false）：设为 true 时直接关闭自动选择。
-
-卸载或停用时恢复挂载前的原值。启动证据写在 `$DSH_HOME/logs/dsh-net-opt.log`。
+判断方法：装上本插件后对比同一供应商的失败率，失败率明显下降即为受益者。目前实测确认的是 `opencode-go`，其他供应商未逐一验证。
 
 ## 安装
 
@@ -27,24 +24,16 @@ Node 默认 `autoSelectFamily=true`、`autoSelectFamilyAttemptTimeout=250`：每
 dsh plugin --profile desktop add github:NEVSTOP-LAB/dsh-net-opt#v0.1.0
 ```
 
-插件自带 bundle patch，装完即挂载；改行为在 profile 的 `cordis.patch.yml` 里按 id `dsh-net-opt` 覆盖，不重复写 insert。
+装完重启 DSH 生效。需要改行为时，在 profile 的 `cordis.patch.yml` 里按 id `dsh-net-opt` 覆盖配置。
 
-## 验证
+## 配置
 
-- `$DSH_HOME/logs/dsh-net-opt.log` 有一行 `apply autoSelectFamily ... attemptTimeoutMs 250 -> 3000`；
-- 用会走慢速链路的 provider 连跑数轮请求，不再出现成串 `TRANSPORT`；
-- 同一主机上对比：`node -e "console.log(require('net').getDefaultAutoSelectFamilyAttemptTimeout())"` 在宿主进程内应返回配置值。
+| 参数 | 默认 | 说明 |
+|---|---|---|
+| `attemptTimeoutMs` | 3000 | 单个候选地址的建连窗口 |
+| `disableAutoSelectFamily` | false | 直接关闭自动选择 |
 
-## 回退
+## 验证与回退
 
-```powershell
-dsh plugin --profile desktop remove dsh-net-opt
-```
-
-或把 profile 补丁条目的 `attemptTimeoutMs` 调回 `250`。
-
-## 边界
-
-- 只影响新建立的连接，已建立的连接不受影响；
-- 调宽窗口会让「确实不可达的候选地址」多占用时间；本插件默认值 3000ms，保持 Happy Eyeballs 算法本身不变；
-- Node 缺少 `net.setDefaultAutoSelectFamilyAttemptTimeout`（低于 20.13）时插件跳过并告警。
+- 生效证据：`$DSH_HOME/logs/dsh-net-opt.log` 出现 `apply ... attemptTimeoutMs 250 -> 3000`；
+- 回退：`dsh plugin --profile desktop remove dsh-net-opt`，或把 `attemptTimeoutMs` 改回 `250`。
