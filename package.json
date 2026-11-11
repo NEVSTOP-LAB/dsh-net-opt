@@ -1,0 +1,39 @@
+{
+  "name": "dsh-net-opt",
+  "version": "0.1.0",
+  "description": "DSH host plugin: widen Node's Happy Eyeballs per-address attempt window so slow IPv4 handshakes are not abandoned at 250ms",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": "./lib/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "scripts": {
+    "test": "node test/index.test.js"
+  },
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "dsh-plugin",
+    "cordis-plugin",
+    "happy-eyeballs",
+    "autoSelectFamily",
+    "network"
+  ]
+}

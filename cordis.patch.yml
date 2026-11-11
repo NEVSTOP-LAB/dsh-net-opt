@@ -1,0 +1,8 @@
+# dsh-net-opt 的挂载声明：DSH 启动时把这一行插入 profile 的配置树。
+# 行为参数可在 profile 的 cordis.patch.yml 里按 id（`dsh-net-opt`）做顶层覆盖。
+- insert:
+    - id: dsh-net-opt
+      name: dsh-net-opt
+      config:
+        attemptTimeoutMs: 3000
+        disableAutoSelectFamily: false
