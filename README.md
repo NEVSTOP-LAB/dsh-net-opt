@@ -1,3 +1,6 @@
+> [!NOTE]
+> 兼容 DSH 0.2.x（`engines.dsh` 见 `package.json`）；实测 `0.2.0-rc.2`、`0.2.1-rc.5`、`0.2.2-rc.5`（Linux CI 逐版本装载验证）。
+
 # dsh-net-opt
 
 DSH（DeepSeek Harness）宿主插件：解决 provider 请求「连接经常失败」的问题。
