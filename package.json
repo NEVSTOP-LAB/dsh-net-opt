@@ -1,6 +1,6 @@
 {
   "name": "dsh-net-opt",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "DSH host plugin: widen Node's Happy Eyeballs per-address attempt window so slow IPv4 handshakes are not abandoned at 250ms",
   "type": "module",
   "main": "lib/index.js",
